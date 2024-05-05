@@ -107,12 +107,15 @@ def confirm_guess():
     return jsonify({'value': message})
 
 def get_gemini_response(input_text, image):
-    model = genai.GenerativeModel('gemini-pro-vision')
-    if input_text != "":
-        response = model.generate_content([input_text, image])
-    else:
-        response = model.generate_content(image)
-    return response.text
+    try: 
+        model = genai.GenerativeModel('gemini-pro-vision')
+        if input_text != "":
+            response = model.generate_content([input_text, image])
+        else:
+            response = model.generate_content(image)
+        return response.text
+    except Exception as e:
+        return "i cant guess it"
 
 def get_ai_response(answer,guess):
     prompt = f'The guesser is trying to guess what is in an image. The answer is \'{answer}\'. The guesser has guessed \'{guess}\'. Are they correct? Respond \'true\' or \'false\''
