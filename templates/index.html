@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Drawer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap');
+        :root *{
+            font-family: "Indie Flower", cursive;
+            font-weight: 800;
+        }
+        #canvas {
+          border: 2px solid black;
+        }
+        body>div{
+            justify-self: center; width: 800px;
+        }
+        #guesses,#hint{
+            box-sizing: border-box;
+            border: 2px solid black;
+            min-height: 100px;
+            margin-bottom: 10px;
+        }
+        #guesses p{
+            background-color: cornflowerblue;
+            font-family: "Indie Flower", cursive;
+            font-weight: 400;
+            font-style: normal;
+            width: min-content;
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            font-weight: 800;
+        }
+        #wordprompt{
+            text-align: center;
+            letter-spacing: 2px;
+            font-size: larger;
+        }
+        .info{margin:0;padding:0;height:min-content;display: flex;}
+        .info>*{align-self: center;}
+        input[type="button"],input[type='color']{
+            background: white;
+            border:2px solid black;
+            font-size: 18px;
+            letter-spacing: 4px;
+            height: 35px;
+            margin: 0px 5px;
+            display: inline-block;
+        }
+        input:nth-child(1):hover{
+            background: #FAD1FA;
+        }
+        input:nth-child(6):hover{
+            background: #BDB2FF;
+        }
+        input:nth-child(7):hover,.info p span:hover{
+            background: #FEC868;
+        }
+        input:nth-child(8):hover{
+            background:#97ECF1 ;
+        }
+        #wordprompt:hover{
+            color: #BDB2FF
+        }
+        input:nth-child(4):hover{
+            background: #F1F7B5;
+        }
+        input:nth-child(5):hover{
+            background: #DFFDFF;
+        }
+        .info p, .info form{
+            font-size: 18px;
+            width: 150px;
+            display: inline-block;
+            text-align: center; 
+            height:100%;
+        }
+        .info p span{
+            padding: 2px;
+            border-radius: 50%;
+            background:#DFFDFF;
+            font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+        }
+#loader,#loader2{
+    display: none; 
+}
+.lds-ripple{
+    float: inline-end;
+}
+        .lds-ripple,
+.lds-ripple div {
+  box-sizing: border-box;
+}
+.lds-ripple {
+  display: inline-block;
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+.lds-ripple div {
+  position: absolute;
+  border: 4px solid #BDB2FF;
+  opacity: 1;
+  border-radius: 50%;
+  animation: lds-ripple 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+.lds-ripple div:nth-child(2) {
+  animation-delay: -0.5s;
+}
+@keyframes lds-ripple {
+  0% {
+    top: 36px;
+    left: 36px;
+    width: 8px;
+    height: 8px;
+    opacity: 0;
+  }
+  4.9% {
+    top: 36px;
+    left: 36px;
+    width: 8px;
+    height: 8px;
+    opacity: 0;
+
+  }
+  5% {
+    top: 36px;
+    left: 36px;
+    width: 8px;
+    height: 8px;
+    opacity: 1;
+  }
+  100% {
+    top: 0;
+    left: 0;
+    width: 80px;
+    height: 80px;
+    opacity: 0;
+  }
+}
+</style>
+</head>
+<body style="display:grid;">
+    <h1 style="text-align: center;">Drawing Guesser</h1>
+    <div>
+        <p id="wordprompt"></p>
+    </div>
+    <div style="align-self: center; justify-self: center;">
+        <canvas id="canvas" width="800" height="600"></canvas> 
+    </div>
+    <div class="info">
+        <input type="button" value="Guess" onclick="setCanvasImage()">
+        <p>Streak: <span id="streak">0</span></p>
+        <p>Guesses Left: <span id="chances">3</span></p>
+        
+        <input type="color" id="colorpicker" value="#000000">
+        <input type="button" value="&#9003" onclick="eraser()">
+        <input type="button" value="Skip" onclick="skip()">
+        <input type="button" value="Clear Canvas" onclick="clearCanvas()">
+        <input type="button" value="&#128161" onclick="hint()">
+    </div>
+    <div id="guesses">
+        <div id='loader' class="lds-ripple"><div></div><div></div></div>
+    </div>
+    <div id="hint">
+        <p id="tip"></p>
+        <div id='loader2' class="lds-ripple"><div></div><div></div></div>
+    </div>
+    <p id="charCount"></p>
+    <script>
+    var answer='';
+    var chances=3;
+    var streak=0;
+    var colors = ["#FEC868", "#DFFDFF", "#F1F7B5", "#97ECF1", "#BDB2FF", "#FAD1FA"];
+
+    function getWord() {
+  fetch('/get_word', {
+         method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Insert random word into the <p> tag
+        document.getElementById('wordprompt').textContent = `"${data.word}"`;
+        answer = data.word;
+    })
+    .catch(error => console.error('Error fetching random word:', error));
+    }
+
+    // Call getWord function when window is loaded
+    window.onload = getWord;
+
+    var strokecolor='#000000';
+    document.getElementById("colorpicker").addEventListener("change", function() {
+        strokecolor = this.value; 
+    });
+    function eraser(){
+        strokecolor = '#ffffff'; 
+    }
+    let canvas = document.getElementById('canvas');
+    let context = canvas.getContext('2d');
+    canvas.style.cursor = 'url("{{ url_for("static", filename="cursor.cur") }}"), auto';
+    context.fillStyle = '#FFFFFF'; // White background
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    function draw(event) {
+      let x = event.offsetX;
+      let y = event.offsetY;
+
+      if (event.type === 'mousedown') {
+        isDrawing = true;
+        lastX = x;
+        lastY = y;
+      } else if (event.type === 'mousemove' && isDrawing) {
+        context.strokeStyle = strokecolor;
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(lastX, lastY);
+        context.lineTo(x, y);
+        context.stroke();
+        lastX = x;
+        lastY = y;
+      } else if (event.type === 'mouseup' || event.type === 'mouseout') {
+        isDrawing = false;
+      }
+    }
+
+    canvas.addEventListener('mousedown', draw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', draw);
+    function clearCanvas() {
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    function getMessage() {
+        var message = document.getElementById("message").value;
+        fetch('/get_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'message=' + encodeURIComponent(message)
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("charCount").innerText = 'The number of characters in your message is: ' + data.char_count;
+        });
+    }
+
+        function uploadImage() {
+            var formData = new FormData();
+            var image = document.getElementById("image").files[0];
+            formData.append('file', image);
+            fetch('/upload_image', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+            });
+        }
+        function hint() {
+            document.getElementById('loader2').style.display = 'block';
+            var canvas = document.getElementById("canvas");
+            var imageDataUrl = canvas.toDataURL(); // Get data URL of the canvas image
+            fetch('/get_hint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Send JSON data
+                },
+                body: JSON.stringify({image_data_url: imageDataUrl, 'answer':answer}) // Send data URL as JSON
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loader2').style.display = 'none';
+                var randomColor = colors[Math.floor(Math.random() * colors.length)];
+                var hintbox = document.getElementById("hint");
+                hintbox.style.backgroundColor = randomColor;
+                var paragraph = document.getElementById("tip");
+                paragraph.textContent = `${data.message}`;
+                
+            });
+        }
+        // Function to set canvas image as upload image
+        function setCanvasImage() {
+            document.getElementById('loader').style.display = 'block';
+            var canvas = document.getElementById("canvas");
+            var imageDataUrl = canvas.toDataURL(); // Get data URL of the canvas image
+            fetch('/upload_image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Send JSON data
+                },
+                body: JSON.stringify({image_data_url: imageDataUrl}) // Send data URL as JSON
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loader').style.display = 'none';
+                var randomColor = colors[Math.floor(Math.random() * colors.length)];
+                var paragraph = document.createElement("p");
+                paragraph.textContent = `${data.message}`;
+                paragraph.style.backgroundColor = randomColor;
+                document.getElementById("guesses").appendChild(paragraph);
+                fetch('/guess', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json', // Send JSON data
+                    },
+                    body: JSON.stringify({'answer': answer, 'guess': data.message}) // Combine data into a single object
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.value==='true'){
+                        streak++;
+                        document.getElementById('streak').innerText=streak;
+                        chances=3;
+                        document.getElementById('chances').innerText=chances;
+                        getWord();
+                    }
+                    else{
+                        chances--;
+                        if (chances<1){
+                            chances=3;
+                            streak=0;
+                            document.getElementById('streak').innerText=streak;
+                            getWord();
+                        }
+                        document.getElementById('chances').innerText=chances;
+                    }
+                })
+            });
+        }
+        function skip() {
+            streak=0;
+            document.getElementById('streak').innerText=streak;
+            chances=3;
+            document.getElementById('chances').innerText=chances;
+            getWord();
+        }
+    </script>
+</body>
+</html>
